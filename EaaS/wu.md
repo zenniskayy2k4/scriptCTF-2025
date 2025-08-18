@@ -148,6 +148,3 @@ r.close()
 ## Kết Luận Tư Duy
 - **Tại sao thành công**: Khai thác malleability để "cheat" asserts ở plaintext, nhưng decrypt ra đúng mong muốn.
 - **Bài học**: CBC dễ bị tamper nếu attacker control ciphertext. Luôn verify integrity (như HMAC).
-- Nếu bạn run script và gặp lỗi, check lengths hoặc flip positions (thử flip byte khác nếu substring vẫn match).
-
-Hy vọng walkthrough này chi tiết và hữu ích! Nếu cần chỉnh sửa, cứ hỏi nhé. 😊
