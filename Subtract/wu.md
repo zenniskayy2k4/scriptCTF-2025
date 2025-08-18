@@ -1,0 +1,1 @@
+Flag: `scriptCTF{5ub7r4c7_7h3_n01s3}`

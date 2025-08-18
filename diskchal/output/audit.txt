@@ -1,0 +1,21 @@
+Foremost version 1.5.7 by Jesse Kornblum, Kris Kendall, and Nick Mikus
+Audit File
+
+Foremost started at Sat Aug 16 08:17:14 2025
+Invocation: foremost -i stick.img -o output 
+Output directory: /home/zenniskayy/CTF/output
+Configuration file: /etc/foremost.conf
+------------------------------------------------------------------
+File: stick.img
+Start: Sat Aug 16 08:17:14 2025
+Length: 24 MB (25165824 bytes)
+ 
+Num	 Name (bs=512)	       Size	 File Offset	 Comment 
+
+Finish: Sat Aug 16 08:17:14 2025
+
+0 FILES EXTRACTED
+	
+------------------------------------------------------------------
+
+Foremost finished at Sat Aug 16 08:17:14 2025
