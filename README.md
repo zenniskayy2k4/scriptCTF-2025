@@ -1,1 +1,3 @@
-"# scriptCTF-2025" 
+# scriptCTF-2025
+
+Some solved or unsolved.
