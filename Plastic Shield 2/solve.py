@@ -35,7 +35,6 @@ for b1 in range(256):
                         plaintext = decrypted_data[:-padding_len]
                         # Thường flag sẽ là dạng printable ASCII
                         if all(32 <= c < 127 for c in plaintext):
-                            print(f"\n[+] SUCCESS!")
                             print(f"    Key Size: {len(key)} bytes")
                             print(f"    Key Bytes: 0x{b1:02x}, 0x{b2:02x}")
                             print(f"    FLAG: {plaintext.decode('ascii')}")
